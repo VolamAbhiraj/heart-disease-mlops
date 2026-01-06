@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import mlflow
 import mlflow.sklearn
@@ -9,6 +10,11 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
+
+# ------------------------------------------------------------------
+# FIX FOR CI (GitHub Actions) – force local MLflow tracking directory
+# ------------------------------------------------------------------
+os.environ["MLFLOW_TRACKING_URI"] = "file:./mlruns"
 
 # Load dataset
 df = pd.read_csv("data/heart.csv")
@@ -30,7 +36,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 mlflow.set_experiment("Heart Disease Prediction")
 
-# -------- Logistic Regression --------
+# ================= LOGISTIC REGRESSION =================
 with mlflow.start_run(run_name="Logistic Regression"):
 
     lr_pipeline = Pipeline([
@@ -45,20 +51,21 @@ with mlflow.start_run(run_name="Logistic Regression"):
     mlflow.log_param("max_iter", 2000)
 
     mlflow.log_metric("accuracy", accuracy_score(y_test, preds))
-    mlflow.log_metric("precision", precision_score(y_test, preds, average="binary"))
-    mlflow.log_metric("recall", recall_score(y_test, preds, average="binary"))
+    mlflow.log_metric("precision", precision_score(y_test, preds))
+    mlflow.log_metric("recall", recall_score(y_test, preds))
     mlflow.log_metric("roc_auc", roc_auc_score(y_test, preds))
 
+    # Safe model logging (works locally + CI)
     mlflow.sklearn.log_model(lr_pipeline, "logistic-model")
 
     joblib.dump(lr_pipeline, "src/logistic_pipeline.pkl")
 
-# -------- Random Forest --------
+# ================= RANDOM FOREST =================
 with mlflow.start_run(run_name="Random Forest"):
 
     rf_pipeline = Pipeline([
         ("imputer", SimpleImputer(strategy="mean")),
-        ("classifier", RandomForestClassifier(n_estimators=100))
+        ("classifier", RandomForestClassifier(n_estimators=100, random_state=42))
     ])
 
     rf_pipeline.fit(X_train, y_train)
@@ -68,8 +75,8 @@ with mlflow.start_run(run_name="Random Forest"):
     mlflow.log_param("n_estimators", 100)
 
     mlflow.log_metric("accuracy", accuracy_score(y_test, preds))
-    mlflow.log_metric("precision", precision_score(y_test, preds, average="binary"))
-    mlflow.log_metric("recall", recall_score(y_test, preds, average="binary"))
+    mlflow.log_metric("precision", precision_score(y_test, preds))
+    mlflow.log_metric("recall", recall_score(y_test, preds))
     mlflow.log_metric("roc_auc", roc_auc_score(y_test, preds))
 
     mlflow.sklearn.log_model(rf_pipeline, "rf-model")
